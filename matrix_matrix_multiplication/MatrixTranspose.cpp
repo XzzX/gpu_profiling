@@ -93,7 +93,7 @@ void transpose_team_policy()
             auto kernel = [=](const int64_t &jdx) { B(jdx, idx) = A(idx, jdx); };
             Kokkos::parallel_for(policy, kernel);
         };
-        Kokkos::parallel_for(teamPolicy, teamKernel);
+        Kokkos::parallel_for("transpose_teampolicy_" + layoutToString<MEMORY_LAYOUT>(), teamPolicy, teamKernel);
 
         Kokkos::fence();
     }
@@ -180,7 +180,7 @@ void transpose_smem()
                 Kokkos::parallel_for(threadPolicy, threadKernel);
             }
         };
-        Kokkos::parallel_for(teamPolicy, teamKernel);
+        Kokkos::parallel_for("transpose_shmem_" + layoutToString<MEMORY_LAYOUT>(), teamPolicy, teamKernel);
         Kokkos::fence();
     }
     auto stop = std::chrono::system_clock::now();
