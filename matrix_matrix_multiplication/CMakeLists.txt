@@ -22,3 +22,10 @@ add_executable(MMM
 target_link_libraries(MMM
         PUBLIC Kokkos::kokkos
         )
+
+add_executable(MatrixTranspose
+        MatrixTranspose.cpp
+        )
+target_link_libraries(MatrixTranspose
+        PUBLIC Kokkos::kokkos
+        )
