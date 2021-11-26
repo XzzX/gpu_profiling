@@ -90,7 +90,7 @@ void transpose_team_policy()
             auto idx = team_member.league_rank();
 
             auto policy = Kokkos::TeamThreadRange(team_member, M);
-            auto kernel = [=](const int64_t &jdx) { B(jdx, idx) = A(idx, jdx); };
+            auto kernel = [=](const int64_t &jdx) { B(idx, jdx) = A(jdx, idx); };
             Kokkos::parallel_for(policy, kernel);
         };
         Kokkos::parallel_for("transpose_teampolicy_" + layoutToString<MEMORY_LAYOUT>(), teamPolicy, teamKernel);
@@ -135,7 +135,7 @@ void transpose_smem()
                                      Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
         size_t shmem_size = shmem_t::shmem_size(TILE, TILE);
 
-        auto teamPolicy = Kokkos::TeamPolicy<>(TILES * TILES, Kokkos::AUTO())
+        auto teamPolicy = Kokkos::TeamPolicy<>(TILES * TILES, 256)
                               .set_scratch_size(0, Kokkos::PerTeam(shmem_size));
         auto teamKernel = KOKKOS_LAMBDA(Kokkos::TeamPolicy<>::member_type team_member)
         {
@@ -148,10 +148,10 @@ void transpose_smem()
 
             {
                 auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE);
-                auto threadKernel = [=](const int64_t &jdx)
+                auto threadKernel = [=](const int64_t &idx)
                 {
                     auto vectorPolicy = Kokkos::ThreadVectorRange(team_member, TILE);
-                    auto vectorKernel = [&](const int64_t &idx)
+                    auto vectorKernel = [&](const int64_t &jdx)
                     {
                         const auto i = offsetI + idx;
                         const auto j = offsetJ + jdx;
@@ -166,10 +166,10 @@ void transpose_smem()
 
             {
                 auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE);
-                auto threadKernel = [=](const int64_t &idx)
+                auto threadKernel = [=](const int64_t &jdx)
                 {
                     auto vectorPolicy = Kokkos::ThreadVectorRange(team_member, TILE);
-                    auto vectorKernel = [&](const int64_t &jdx)
+                    auto vectorKernel = [&](const int64_t &idx)
                     {
                         const auto i = offsetI + idx;
                         const auto j = offsetJ + jdx;
