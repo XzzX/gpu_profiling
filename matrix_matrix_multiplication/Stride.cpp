@@ -18,9 +18,9 @@ void stridedAccess()
     for (auto i = 0; i < iterations; ++i)
     {
         auto start = std::chrono::system_clock::now();
-        for (auto strideExp = 0; strideExp < 5; ++strideExp)
+        for (auto strideExp = -1; strideExp < 4; ++strideExp)
         {
-            auto stride = (1 << strideExp);
+            auto stride = strideExp < 0 ? 0 : (1 << strideExp);
             auto policy = Kokkos::RangePolicy<>(0, M);
             auto kernel = KOKKOS_LAMBDA(const int64_t &idx) { x(idx * stride) += 1; };
             Kokkos::parallel_for("stride_" + std::to_string(stride), policy, kernel);
