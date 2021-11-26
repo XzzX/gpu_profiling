@@ -22,7 +22,7 @@ void stridedAccess()
             auto policy = Kokkos::RangePolicy<>(0, M);
             auto kernel = KOKKOS_LAMBDA(const int64_t &idx) { x(idx * stride) += 1; };
             Kokkos::parallel_for(
-                "stride_" + typeid(TYPE).name() + std::to_string(stride), policy, kernel);
+                "stride_" + std::string(typeid(TYPE).name()) + std::to_string(stride), policy, kernel);
             Kokkos::fence();
         }
         auto stop = std::chrono::system_clock::now();
