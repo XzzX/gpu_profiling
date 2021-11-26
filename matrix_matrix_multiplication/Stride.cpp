@@ -4,6 +4,8 @@
 
 /**
  * Check performance of strided memory access.
+ *
+ * https://developer.nvidia.com/blog/how-access-global-memory-efficiently-cuda-c-kernels/
  */
 template <typename TYPE>
 void stridedAccess()
