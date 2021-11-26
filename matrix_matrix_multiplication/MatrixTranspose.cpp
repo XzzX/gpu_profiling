@@ -107,7 +107,7 @@ template <typename TYPE, typename MEMORY_LAYOUT>
 void transpose_smem()
 {
     constexpr size_t M = 4096;
-    constexpr size_t TILE = 16;
+    constexpr size_t TILE = 32;
     constexpr size_t TILES = (M / TILE);
     constexpr int iterations = 1;
 
@@ -141,19 +141,19 @@ void transpose_smem()
         {
             auto idx = team_member.league_rank();
 
-            int64_t offsetI = (idx % TILES) * TILE;
-            int64_t offsetJ = (idx / TILES) * TILE;
+            const int64_t offsetI = (idx % TILES) * TILE;
+            const int64_t offsetJ = (idx / TILES) * TILE;
 
             auto shmem = shmem_t(team_member.team_scratch(0), TILE, TILE);
 
             {
                 auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE);
-                auto threadKernel = [=](const int64_t &idx)
+                auto threadKernel = [&](const int64_t &idx)
                 {
+                    const auto i = offsetI + idx;
                     auto vectorPolicy = Kokkos::ThreadVectorRange(team_member, TILE);
                     auto vectorKernel = [&](const int64_t &jdx)
                     {
-                        const auto i = offsetI + idx;
                         const auto j = offsetJ + jdx;
                         shmem(idx, jdx) = A(i, j);
                     };
@@ -166,13 +166,13 @@ void transpose_smem()
 
             {
                 auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE);
-                auto threadKernel = [=](const int64_t &jdx)
+                auto threadKernel = [&](const int64_t &jdx)
                 {
+                    const auto j = offsetJ + jdx;
                     auto vectorPolicy = Kokkos::ThreadVectorRange(team_member, TILE);
                     auto vectorKernel = [&](const int64_t &idx)
                     {
                         const auto i = offsetI + idx;
-                        const auto j = offsetJ + jdx;
                         B(j, i) = shmem(idx, jdx);
                     };
                     Kokkos::parallel_for(vectorPolicy, vectorKernel);
