@@ -23,7 +23,7 @@ constexpr const std::string &layoutToString()
 template <typename TYPE, typename MEMORY_LAYOUT>
 void copy()
 {
-    constexpr size_t M = 4096 * 2;
+    constexpr size_t M = 4096;
     constexpr int iterations = 1;
 
     auto A = Kokkos::View<TYPE **, MEMORY_LAYOUT>("A", M, M);
@@ -49,7 +49,7 @@ void copy()
 template <typename TYPE, typename MEMORY_LAYOUT>
 void transpose()
 {
-    constexpr size_t M = 4096 * 2;
+    constexpr size_t M = 4096;
     constexpr int iterations = 1;
 
     auto A = Kokkos::View<TYPE **, MEMORY_LAYOUT>("A", M, M);
@@ -75,7 +75,7 @@ void transpose()
 template <typename TYPE, typename MEMORY_LAYOUT>
 void transpose_team_policy()
 {
-    constexpr size_t M = 10;
+    constexpr size_t M = 4096;
     constexpr int iterations = 1;
 
     auto A = Kokkos::View<TYPE **, MEMORY_LAYOUT>("A", M, M);
