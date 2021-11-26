@@ -9,7 +9,7 @@
 void MMM()
 {
     // dimensions
-    constexpr size_t M = 1024;
+    constexpr size_t M = 4096;
     constexpr int iterations = 1;
 
     // vector y in R^M
