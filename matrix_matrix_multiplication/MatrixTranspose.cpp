@@ -135,7 +135,7 @@ void transpose_smem()
                                      Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
         size_t shmem_size = shmem_t::shmem_size(TILE, TILE);
 
-        auto teamPolicy = Kokkos::TeamPolicy<>(TILES * TILES, 256)
+        auto teamPolicy = Kokkos::TeamPolicy<>(TILES * TILES, 128)
                               .set_scratch_size(0, Kokkos::PerTeam(shmem_size));
         auto teamKernel = KOKKOS_LAMBDA(Kokkos::TeamPolicy<>::member_type team_member)
         {
