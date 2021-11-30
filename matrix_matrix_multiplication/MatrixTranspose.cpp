@@ -107,22 +107,22 @@ void transpose_team_policy()
 template <typename TYPE, typename MEMORY_LAYOUT>
 void transpose_smem()
 {
-    constexpr size_t M = 4096;
-    constexpr size_t TILE = 32;
-    constexpr size_t SHMEM_TILE = 33;
-    constexpr size_t TILES = (M / TILE);
+    constexpr size_t MATRIX_SIZE = 4096;
+    constexpr size_t TILE_SIZE = 32;
+    constexpr size_t SHMEM_TILE_SIZE = 33;
+    constexpr size_t NUM_TILES = (MATRIX_SIZE / TILE_SIZE);
     constexpr int iterations = 1;
 
-    auto A = Kokkos::View<TYPE **, MEMORY_LAYOUT>("A", M, M);
-    auto B = Kokkos::View<TYPE **, MEMORY_LAYOUT>("B", M, M);
+    auto A = Kokkos::View<TYPE **, MEMORY_LAYOUT>("A", MATRIX_SIZE, MATRIX_SIZE);
+    auto B = Kokkos::View<TYPE **, MEMORY_LAYOUT>("B", MATRIX_SIZE, MATRIX_SIZE);
 
     //        Kokkos::parallel_for(
-    //            Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0, 0}, {M, M}),
+    //            Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0, 0}, {MATRIX_SIZE, MATRIX_SIZE}),
     //            KOKKOS_LAMBDA(const int64_t idx, const int64_t jdx) { A(idx, jdx) = idx; });
     //
-    //        for (auto i = 0; i < M; ++i)
+    //        for (auto i = 0; i < MATRIX_SIZE; ++i)
     //        {
-    //            for (auto j = 0; j < M; ++j)
+    //            for (auto j = 0; j < MATRIX_SIZE; ++j)
     //            {
     //                std::cout << A(i, j) << " ";
     //            }
@@ -135,28 +135,28 @@ void transpose_smem()
         using shmem_t = Kokkos::View<double **,
                                      Kokkos::DefaultExecutionSpace::scratch_memory_space,
                                      Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-        size_t shmem_size = shmem_t::shmem_size(SHMEM_TILE, SHMEM_TILE);
+        size_t shmem_size = shmem_t::shmem_size(SHMEM_TILE_SIZE, SHMEM_TILE_SIZE);
 
-        auto teamPolicy = Kokkos::TeamPolicy<>(TILES * TILES, 128)
+        auto teamPolicy = Kokkos::TeamPolicy<>(NUM_TILES * NUM_TILES, 128)
                               .set_scratch_size(0, Kokkos::PerTeam(shmem_size));
         auto teamKernel = KOKKOS_LAMBDA(Kokkos::TeamPolicy<>::member_type team_member)
         {
-            auto tileIdx = team_member.league_rank();
+            auto tileIndex = team_member.league_rank();
 
-            const int64_t offsetI = (tileIdx % TILES) * TILE;
-            const int64_t offsetJ = (tileIdx / TILES) * TILE;
+            const int64_t tileOffsetI = (tileIndex % NUM_TILES) * TILE_SIZE;
+            const int64_t tileOffsetJ = (tileIndex / NUM_TILES) * TILE_SIZE;
 
-            auto shmem = shmem_t(team_member.team_scratch(0), SHMEM_TILE, SHMEM_TILE);
+            auto shmem = shmem_t(team_member.team_scratch(0), SHMEM_TILE_SIZE, SHMEM_TILE_SIZE);
 
             {
-                auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE * TILE);
+                auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE_SIZE * TILE_SIZE);
                 auto threadKernel = [&](const int64_t &index)
                 {
-                    const int64_t idx = (index % TILE);
-                    const int64_t jdx = (index / TILE);
+                    const int64_t idx = (index % TILE_SIZE);
+                    const int64_t jdx = (index / TILE_SIZE);
 
-                    const auto i = offsetI + idx;
-                    const auto j = offsetJ + jdx;
+                    const auto i = tileOffsetI + idx;
+                    const auto j = tileOffsetJ + jdx;
                     shmem(idx, jdx) = A(i, j);
                 };
                 Kokkos::parallel_for(threadPolicy, threadKernel);
@@ -165,14 +165,14 @@ void transpose_smem()
             team_member.team_barrier();
 
             {
-                auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE * TILE);
+                auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE_SIZE * TILE_SIZE);
                 auto threadKernel = [&](const int64_t &index)
                 {
-                    const int64_t idx = (index / TILE);
-                    const int64_t jdx = (index % TILE);
+                    const int64_t idx = (index / TILE_SIZE);
+                    const int64_t jdx = (index % TILE_SIZE);
 
-                    const auto i = offsetI + idx;
-                    const auto j = offsetJ + jdx;
+                    const auto i = tileOffsetI + idx;
+                    const auto j = tileOffsetJ + jdx;
                     B(j, i) = shmem(idx, jdx);
                 };
                 Kokkos::parallel_for(threadPolicy, threadKernel);
@@ -186,9 +186,9 @@ void transpose_smem()
     auto runtime = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
 
     //        std::cout << std::endl << "=============================" << std::endl << std::endl;
-    //        for (auto i = 0; i < M; ++i)
+    //        for (auto i = 0; i < MATRIX_SIZE; ++i)
     //        {
-    //            for (auto j = 0; j < M; ++j)
+    //            for (auto j = 0; j < MATRIX_SIZE; ++j)
     //            {
     //                std::cout << B(i, j) << " ";
     //            }
