@@ -93,7 +93,8 @@ void transpose_team_policy()
             auto kernel = [=](const int64_t &jdx) { B(idx, jdx) = A(jdx, idx); };
             Kokkos::parallel_for(policy, kernel);
         };
-        Kokkos::parallel_for("transpose_teampolicy_" + layoutToString<MEMORY_LAYOUT>(), teamPolicy, teamKernel);
+        Kokkos::parallel_for(
+            "transpose_teampolicy_" + layoutToString<MEMORY_LAYOUT>(), teamPolicy, teamKernel);
 
         Kokkos::fence();
     }
@@ -115,18 +116,18 @@ void transpose_smem()
     auto A = Kokkos::View<TYPE **, MEMORY_LAYOUT>("A", M, M);
     auto B = Kokkos::View<TYPE **, MEMORY_LAYOUT>("B", M, M);
 
-    //    Kokkos::parallel_for(
-    //        Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0, 0}, {M, M}),
-    //        KOKKOS_LAMBDA(const int64_t idx, const int64_t jdx) { A(idx, jdx) = idx; });
-
-    //    for (auto i = 0; i < M; ++i)
-    //    {
-    //        for (auto j = 0; j < M; ++j)
+    //        Kokkos::parallel_for(
+    //            Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0, 0}, {M, M}),
+    //            KOKKOS_LAMBDA(const int64_t idx, const int64_t jdx) { A(idx, jdx) = idx; });
+    //
+    //        for (auto i = 0; i < M; ++i)
     //        {
-    //            std::cout << A(i, j) << " ";
+    //            for (auto j = 0; j < M; ++j)
+    //            {
+    //                std::cout << A(i, j) << " ";
+    //            }
+    //            std::cout << std::endl;
     //        }
-    //        std::cout << std::endl;
-    //    }
 
     auto start = std::chrono::system_clock::now();
     for (auto i = 0; i < iterations; ++i)
@@ -140,25 +141,23 @@ void transpose_smem()
                               .set_scratch_size(0, Kokkos::PerTeam(shmem_size));
         auto teamKernel = KOKKOS_LAMBDA(Kokkos::TeamPolicy<>::member_type team_member)
         {
-            auto idx = team_member.league_rank();
+            auto tileIdx = team_member.league_rank();
 
-            const int64_t offsetI = (idx % TILES) * TILE;
-            const int64_t offsetJ = (idx / TILES) * TILE;
+            const int64_t offsetI = (tileIdx % TILES) * TILE;
+            const int64_t offsetJ = (tileIdx / TILES) * TILE;
 
             auto shmem = shmem_t(team_member.team_scratch(0), SHMEM_TILE, SHMEM_TILE);
 
             {
-                auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE);
-                auto threadKernel = [&](const int64_t &idx)
+                auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE * TILE);
+                auto threadKernel = [&](const int64_t &index)
                 {
+                    const int64_t idx = (index % TILE);
+                    const int64_t jdx = (index / TILE);
+
                     const auto i = offsetI + idx;
-                    auto vectorPolicy = Kokkos::ThreadVectorRange(team_member, TILE);
-                    auto vectorKernel = [&](const int64_t &jdx)
-                    {
-                        const auto j = offsetJ + jdx;
-                        shmem(idx, jdx) = A(i, j);
-                    };
-                    Kokkos::parallel_for(vectorPolicy, vectorKernel);
+                    const auto j = offsetJ + jdx;
+                    shmem(idx, jdx) = A(i, j);
                 };
                 Kokkos::parallel_for(threadPolicy, threadKernel);
             }
@@ -166,36 +165,35 @@ void transpose_smem()
             team_member.team_barrier();
 
             {
-                auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE);
-                auto threadKernel = [&](const int64_t &jdx)
+                auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE * TILE);
+                auto threadKernel = [&](const int64_t &index)
                 {
+                    const int64_t idx = (index / TILE);
+                    const int64_t jdx = (index % TILE);
+
+                    const auto i = offsetI + idx;
                     const auto j = offsetJ + jdx;
-                    auto vectorPolicy = Kokkos::ThreadVectorRange(team_member, TILE);
-                    auto vectorKernel = [&](const int64_t &idx)
-                    {
-                        const auto i = offsetI + idx;
-                        B(j, i) = shmem(idx, jdx);
-                    };
-                    Kokkos::parallel_for(vectorPolicy, vectorKernel);
+                    B(j, i) = shmem(idx, jdx);
                 };
                 Kokkos::parallel_for(threadPolicy, threadKernel);
             }
         };
-        Kokkos::parallel_for("transpose_shmem_" + layoutToString<MEMORY_LAYOUT>(), teamPolicy, teamKernel);
+        Kokkos::parallel_for(
+            "transpose_shmem_" + layoutToString<MEMORY_LAYOUT>(), teamPolicy, teamKernel);
         Kokkos::fence();
     }
     auto stop = std::chrono::system_clock::now();
     auto runtime = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
 
-    //    std::cout << std::endl << "=============================" << std::endl << std::endl;
-    //    for (auto i = 0; i < M; ++i)
-    //    {
-    //        for (auto j = 0; j < M; ++j)
+    //        std::cout << std::endl << "=============================" << std::endl << std::endl;
+    //        for (auto i = 0; i < M; ++i)
     //        {
-    //            std::cout << B(i, j) << " ";
+    //            for (auto j = 0; j < M; ++j)
+    //            {
+    //                std::cout << B(i, j) << " ";
+    //            }
+    //            std::cout << std::endl;
     //        }
-    //        std::cout << std::endl;
-    //    }
 
     std::cout << "runtime: " << runtime << " ms" << std::endl;
 }
