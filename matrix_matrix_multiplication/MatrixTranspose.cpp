@@ -108,6 +108,7 @@ void transpose_smem()
 {
     constexpr size_t M = 4096;
     constexpr size_t TILE = 32;
+    constexpr size_t SHMEM_TILE = 33;
     constexpr size_t TILES = (M / TILE);
     constexpr int iterations = 1;
 
@@ -133,7 +134,7 @@ void transpose_smem()
         using shmem_t = Kokkos::View<double **,
                                      Kokkos::DefaultExecutionSpace::scratch_memory_space,
                                      Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-        size_t shmem_size = shmem_t::shmem_size(TILE, TILE);
+        size_t shmem_size = shmem_t::shmem_size(SHMEM_TILE, SHMEM_TILE);
 
         auto teamPolicy = Kokkos::TeamPolicy<>(TILES * TILES, 128)
                               .set_scratch_size(0, Kokkos::PerTeam(shmem_size));
@@ -144,7 +145,7 @@ void transpose_smem()
             const int64_t offsetI = (idx % TILES) * TILE;
             const int64_t offsetJ = (idx / TILES) * TILE;
 
-            auto shmem = shmem_t(team_member.team_scratch(0), TILE, TILE);
+            auto shmem = shmem_t(team_member.team_scratch(0), SHMEM_TILE, SHMEM_TILE);
 
             {
                 auto threadPolicy = Kokkos::TeamThreadRange(team_member, TILE);
